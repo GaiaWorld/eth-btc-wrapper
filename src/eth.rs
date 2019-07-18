@@ -2,6 +2,8 @@ use std::os::raw::c_char;
 use std::ffi::{ CStr, CString };
 use std::ptr;
 
+use ethabi::{ Contract, Token };
+use primitive_types;
 use ethereum_tx_sign::RawTransaction;
 use ethereum_types::{ U256, H160, H256 };
 use hex::{ encode, decode };
@@ -77,6 +79,40 @@ pub extern "C" fn free_cstring(raw: *mut c_char) {
     }
 }
 
+#[no_mangle]
+pub extern "C" fn token_balance_call_data(addr: *const c_char) -> *mut c_char {
+    unsafe {
+        let addr = String::from_utf8_lossy(CStr::from_ptr(addr).to_bytes()).to_string();
+        let addr = primitive_types::H160::from_slice(decode(addr).unwrap().as_slice());
+
+        let contract = Contract::load(ERC20ABI.as_bytes()).unwrap();
+        let function = contract.function("balanceOf").unwrap();
+        let token = Token::Address(addr);
+        let input = function.encode_input(&[token]);
+
+        CString::new(input.unwrap()).unwrap().into_raw()
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn token_transfer_call_data(addr_to: *const c_char, value: *const c_char) -> *mut c_char {
+    unsafe {
+        let addr_to = String::from_utf8_lossy(CStr::from_ptr(addr_to).to_bytes()).to_string();
+        let addr_to = primitive_types::H160::from_slice(decode(addr_to).unwrap().as_slice());
+
+        let value = String::from_utf8_lossy(CStr::from_ptr(value).to_bytes()).to_string();
+        let value = primitive_types::U256::from(decode(value).unwrap().as_slice());
+
+        let contract = Contract::load(ERC20ABI.as_bytes()).unwrap();
+        let function = contract.function("transfer").unwrap();
+        let addr_token = Token::Address(addr_to);
+        let value_token = Token::Uint(primitive_types::U256::from(value));
+        let input = function.encode_input(&[addr_token, value_token]);
+
+        CString::new(input.unwrap()).unwrap().into_raw()
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -110,3 +146,169 @@ mod test {
         }
     }
 }
+
+static ERC20ABI: &'static str = r#"
+[
+    {
+        "constant": false,
+        "inputs": [
+            {
+                "name": "_spender",
+                "type": "address"
+            },
+            {
+                "name": "_value",
+                "type": "uint256"
+            }
+        ],
+        "name": "approve",
+        "outputs": [
+            {
+                "name": "success",
+                "type": "bool"
+            }
+        ],
+        "type": "function"
+    },
+    {
+        "constant": true,
+        "inputs": [],
+        "name": "totalSupply",
+        "outputs": [
+            {
+                "name": "total",
+                "type": "uint256"
+            }
+        ],
+        "type": "function"
+    },
+    {
+        "constant": false,
+        "inputs": [
+            {
+                "name": "_from",
+                "type": "address"
+            },
+            {
+                "name": "_to",
+                "type": "address"
+            },
+            {
+                "name": "_value",
+                "type": "uint256"
+            }
+        ],
+        "name": "transferFrom",
+        "outputs": [
+            {
+                "name": "success",
+                "type": "bool"
+            }
+        ],
+        "type": "function"
+    },
+    {
+        "constant": true,
+        "inputs": [
+            {
+                "name": "_owner",
+                "type": "address"
+            }
+        ],
+        "name": "balanceOf",
+        "outputs": [
+            {
+                "name": "balance",
+                "type": "uint256"
+            }
+        ],
+        "type": "function"
+    },
+    {
+        "constant": false,
+        "inputs": [
+            {
+                "name": "_to",
+                "type": "address"
+            },
+            {
+                "name": "_value",
+                "type": "uint256"
+            }
+        ],
+        "name": "transfer",
+        "outputs": [
+            {
+                "name": "success",
+                "type": "bool"
+            }
+        ],
+        "type": "function"
+    },
+    {
+        "constant": true,
+        "inputs": [
+            {
+                "name": "_owner",
+                "type": "address"
+            },
+            {
+                "name": "_spender",
+                "type": "address"
+            }
+        ],
+        "name": "allowance",
+        "outputs": [
+            {
+                "name": "remaining",
+                "type": "uint256"
+            }
+        ],
+        "type": "function"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "name": "from",
+                "type": "address"
+            },
+            {
+                "indexed": true,
+                "name": "to",
+                "type": "address"
+            },
+            {
+                "indexed": false,
+                "name": "value",
+                "type": "uint256"
+            }
+        ],
+        "name": "Transfer",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "name": "owner",
+                "type": "address"
+            },
+            {
+                "indexed": true,
+                "name": "spender",
+                "type": "address"
+            },
+            {
+                "indexed": false,
+                "name": "value",
+                "type": "uint256"
+            }
+        ],
+        "name": "Approval",
+        "type": "event"
+    }
+]
+"#;

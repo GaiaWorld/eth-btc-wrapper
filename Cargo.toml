@@ -20,6 +20,7 @@ ethereum-tx-sign = { git = "https://github.com/synlestidae/ethereum-tx-sign", br
 ethabi = "8.0.0"
 ethereum-types = "0.4"
 hex = "0.3.2"
+primitive-types = "0.3.0"
 
 [build-dependencies]
 
