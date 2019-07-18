@@ -16,11 +16,15 @@ crate-type = ["cdylib"]
 [dependencies]
 
 bitcoin = "0.18.0"
+bitcoin_hashes = "0.3.2"
 ethereum-tx-sign = { git = "https://github.com/synlestidae/ethereum-tx-sign", branch = "master" }
 ethabi = "8.0.0"
 ethereum-types = "0.4"
 hex = "0.3.2"
 primitive-types = "0.3.0"
+secp256k1 = "0.12.2"
+rust-crypto = "0.2.36"
+rand = "0.7.0"
 
 [build-dependencies]
 

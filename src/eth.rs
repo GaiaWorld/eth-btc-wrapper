@@ -73,9 +73,9 @@ pub extern "C" fn build_signed_eth_tx(tx: *const eth_tx_meta) -> *mut c_char {
 }
 
 #[no_mangle]
-pub extern "C" fn free_cstring(raw: *mut c_char) {
+pub extern "C" fn dealloc_rust_cstring(cstring: *mut c_char) {
     unsafe {
-        CString::from_raw(raw);
+        CString::from_raw(cstring);
     }
 }
 

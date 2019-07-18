@@ -21,5 +21,5 @@ int main() {
 
     char* sig = build_signed_eth_tx(&tx);
     printf("sig: %s\n", sig);
-    free_cstring(sig);
+    dealloc_rust_cstring(sig);
 }
