@@ -1,0 +1,25 @@
+[package]
+name = "eth-btc-wrapper"
+version = "0.1.0"
+authors = ["jayphbee <jayphbee@163.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+
+name = "ethbtcwrapper"
+path = "src/lib.rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+
+bitcoin = "0.18.0"
+ethereum-tx-sign = { git = "https://github.com/synlestidae/ethereum-tx-sign", branch = "master" }
+ethabi = "8.0.0"
+
+[profile.release]
+
+opt-level = 3
+lto = true
+panic = "abort"
