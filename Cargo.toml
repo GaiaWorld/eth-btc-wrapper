@@ -23,7 +23,7 @@ ethereum-types = "0.4"
 hex = "0.3.2"
 primitive-types = "0.3.0"
 secp256k1 = "0.12.2"
-rust-crypto = "0.2.36"
+#rust-crypto = "0.2.36"
 rand = "0.7.0"
 
 [build-dependencies]
