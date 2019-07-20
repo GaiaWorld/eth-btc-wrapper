@@ -17,7 +17,7 @@ crate-type = ["cdylib", "staticlib"]
 
 bitcoin = "0.18.0"
 bitcoin_hashes = "0.3.2"
-ethereum-tx-sign = { git = "https://github.com/synlestidae/ethereum-tx-sign", branch = "master" }
+ethereum-tx-sign = { git = "https://github.com/GaiaWorld/ethereum-tx-sign", branch = "master" }
 ethabi = "8.0.0"
 ethereum-types = "0.4"
 hex = "0.3.2"
