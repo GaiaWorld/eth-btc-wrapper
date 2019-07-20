@@ -11,7 +11,7 @@ build = "build.rs"
 
 name = "ethbtcwrapper"
 path = "src/lib.rs"
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "staticlib"]
 
 [dependencies]
 
