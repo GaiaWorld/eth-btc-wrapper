@@ -62,7 +62,7 @@ mod test {
         let secp = Secp256k1::new();
         let msg = Message::from_slice(&sig_hash.into_inner()).unwrap();
         let sk = PrivateKey::from_wif("cRVuQd8qSuSRifRverDNAKmBGgDNDu55mV2gtyoBFT4gwHeuJFQ4").unwrap();
-        let mut sig = secp.sign(&msg, &sk.key).serialize_der();
+        let mut sig = secp.sign(&msg, &sk.key).serialize_der().as_ref().to_vec();
 
         println!("sig: {:?}", encode(&sig));
 
@@ -70,7 +70,7 @@ mod test {
 
         let sig_hash2 = raw_tx.signature_hash(1, &Script::from(decode("76a9145477d7bfe9bdf17cea9f5b2ecacc7a2577723c7488ac").unwrap()), 1);
         let msg2 = Message::from_slice(&sig_hash2.into_inner()).unwrap();
-        let sig2 = secp.sign(&msg2, &sk.key).serialize_der();
+        let sig2 = secp.sign(&msg2, &sk.key).serialize_der().as_ref().to_vec();
 
         println!("sig2: {:?}", encode(&sig2));
 
