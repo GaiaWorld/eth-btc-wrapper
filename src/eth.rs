@@ -8,6 +8,9 @@ use ethereum_tx_sign::RawTransaction;
 use ethereum_types::{ U256, H160, H256 };
 use hex::{ encode, decode };
 
+use tiny_hderive::bip32::ExtendedPrivKey;
+use bip39::{Mnemonic, MnemonicType, Language, Seed};
+
 #[repr(C)]
 pub struct eth_tx_meta {
     nonce: *const c_char,
@@ -116,6 +119,26 @@ pub extern "C" fn token_transfer_call_data(addr_to: *const c_char, value: *const
 #[cfg(test)]
 mod test {
     use super::*;
+    use hex::{encode, decode};
+
+    #[test]
+    fn mnemonic_to_privtekey() {
+        /// create a new randomly generated mnemonic phrase
+        let mnemonic = Mnemonic::from_phrase("lunar exercise inside defense accuse reopen symbol oak milk top chunk axis", Language::English).unwrap();
+
+        /// get the HD wallet seed
+        let seed = Seed::new(&mnemonic, "");
+
+        // get the HD wallet seed as raw bytes
+        let seed_bytes: &[u8] = seed.as_bytes();
+
+        let expected_prviate_key = decode("ff33ff993b1782d16427276a9cc966b8b995c118f0182243152a882b8d3e3faf").unwrap();
+
+        let ext = ExtendedPrivKey::derive(seed_bytes, "m/44'/60'/0'/0/0").unwrap();
+        println!("ext: {:?}", encode(ext.secret()));
+        assert_eq!(ext.secret().to_vec(), expected_prviate_key);
+    }
+
     #[test]
     fn build_tx() {
         let nonce = CStr::from_bytes_with_nul(b"c6\0").unwrap().as_ptr();
