@@ -1,4 +1,5 @@
 use std::os::raw::c_char;
+use std::ffi::{ CStr, CString };
 use std::ptr;
 use bitcoin::blockdata::transaction::{
     TxIn, TxOut, Transaction, OutPoint
@@ -8,10 +9,61 @@ use bitcoin_hashes::{sha256d, Hash};
 use hex::{encode, decode};
 use bitcoin::util::psbt::serialize::Serialize;
 use bitcoin::consensus::encode::Encodable;
+use bitcoin::util::bip32::ExtendedPrivKey;
+use bitcoin::network::constants::Network;
+
+use bip39::{Mnemonic, MnemonicType, Language, Seed};
 
 #[no_mangle]
 pub extern "C" fn btc_generate(strength: u32, network: *const c_char, language: *const c_char, pass_phrase: *const c_char, root_xpriv: *mut *mut c_char, mnemonic: *mut *mut c_char) -> i32 {
-    unimplemented!();
+    assert!(!network.is_null() && !language.is_null() && !root_xpriv.is_null() && !pass_phrase.is_null() && !root_xpriv.is_null() && !mnemonic.is_null());
+
+    let strength = {
+        match (strength + strength / 32) / 11 {
+            12 => MnemonicType::Words12,
+            15 => MnemonicType::Words15,
+            18 => MnemonicType::Words18,
+            21 => MnemonicType::Words21,
+            24 => MnemonicType::Words24,
+            _ => return -1,
+        }
+    };
+
+    let language = unsafe {
+        match CStr::from_ptr(language).to_str().unwrap() {
+            "english" => Language::English,
+            "chinese_simplified" => Language::ChineseSimplified,
+            "chinese_traditional" => Language::ChineseTraditional,
+            _ => return -1,
+        }
+    };
+
+    let network = unsafe {
+        match CStr::from_ptr(network).to_str().unwrap() {
+            "mainnet" => Network::Bitcoin,
+            "testnet" => Network::Testnet,
+            "regtest" => Network::Regtest,
+            _ => return -1,
+        }
+    };
+
+    let pass_phrase = unsafe {
+        CStr::from_ptr(pass_phrase).to_str().unwrap()
+    };
+
+    let mn = Mnemonic::new(strength, language);
+    let phrase = mn.phrase();
+
+    let seed = Seed::new(&Mnemonic::from_phrase(phrase, language).unwrap(), pass_phrase);
+    let extkey = ExtendedPrivKey::new_master(network, seed.as_bytes()).unwrap();
+    println!("extkey: {:?}", extkey);
+
+    unsafe {
+        *root_xpriv = CString::new(extkey.to_string()).unwrap().into_raw();
+        *mnemonic = CString::new(phrase).unwrap().into_raw();
+    }
+
+    return 0;
 }
 
 #[no_mangle]
@@ -38,12 +90,34 @@ pub extern "C" fn btc_build_raw_transaction_from_single_address(priv_key: *const
 mod test {
     use super::*;
     use std::str::FromStr;
+    use std::mem::MaybeUninit;
     use secp256k1::key::SecretKey;
     use secp256k1::Message;
     use secp256k1::Secp256k1;
 
     use bitcoin::util::key::PrivateKey;
     use bitcoin::consensus::encode::serialize;
+
+    #[test]
+    fn test_btc_generate() {
+        let strength = 128;
+        let network = CString::new("testnet").unwrap().into_raw();
+        let lanuage = CString::new("english").unwrap().into_raw();
+        let pass_phrase = CString::new("").unwrap().into_raw();
+
+        let root_xpriv = MaybeUninit::<*mut c_char>::uninit().as_mut_ptr();
+        let mnemonic = MaybeUninit::<*mut c_char>::uninit().as_mut_ptr();
+
+        btc_generate(strength, network, lanuage, pass_phrase, root_xpriv, mnemonic);
+
+        unsafe {
+            let root_xpriv = CString::from_raw(*root_xpriv);
+            let mnemonic = CString::from_raw(*mnemonic);
+
+            println!("root_xpriv: {:?}", root_xpriv);
+            println!("mnemonic: {:?}", mnemonic);
+        }
+    }
 
     #[test]
     fn build_raw_tx() {
