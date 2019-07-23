@@ -120,7 +120,50 @@ pub extern "C" fn eth_from_mnemonic(mnemonic: *const c_char, language: *const c_
 
 #[no_mangle]
 pub extern "C" fn eth_generate(strength: u32, language: *const c_char, address: *mut *mut c_char, priv_key: *mut *mut c_char, master_seed: *mut *mut c_char, mnemonic: *mut *mut c_char) -> i32 {
-    unimplemented!();
+    assert!(!language.is_null() && !address.is_null() && !priv_key.is_null() && !master_seed.is_null() && !mnemonic.is_null());
+    if strength % 32 != 0 || strength < 128 {
+        return -1;
+    }
+
+    let strength = {
+        match (strength + strength / 32) / 11 {
+            12 => MnemonicType::Words12,
+            15 => MnemonicType::Words15,
+            18 => MnemonicType::Words18,
+            21 => MnemonicType::Words21,
+            24 => MnemonicType::Words24,
+            _ => return -1,
+        }
+    };
+
+    let language = unsafe {
+        let lan = CStr::from_ptr(language).to_str().unwrap();
+        if lan == "english" {
+            Language::English
+        } else if lan == "chinese_simplified" {
+            Language::ChineseSimplified
+        } else if lan == "chinese_traditional" {
+            Language::ChineseTraditional
+        } else {
+            return -1;
+        }
+    };
+
+    let mn = Mnemonic::new(strength, language);
+    let phrase = mn.phrase();
+
+    let seed = Seed::new(&Mnemonic::from_phrase(phrase, language).unwrap(), "");
+    let ext = ExtendedPrivKey::derive(seed.as_bytes(), "m/44'/60'/0'/0/0").unwrap();
+    let privte_key = SecretKey::from_raw(&ext.secret()).unwrap();
+
+    unsafe {
+        *address = CString::new(encode(privte_key.public().address())).unwrap().into_raw();
+        *priv_key = CString::new(encode(ext.secret())).unwrap().into_raw();
+        *master_seed = CString::new(encode(seed)).unwrap().into_raw();
+        *mnemonic = CString::new(phrase).unwrap().into_raw();
+    }
+
+    return 0;
 }
 
 #[no_mangle]
@@ -177,6 +220,31 @@ mod test {
     use super::*;
     use hex::{encode, decode};
     use std::ptr;
+
+    #[test]
+    fn test_eth_generate() {
+        let strength = 128;
+        let language = CString::new("english").unwrap().into_raw();
+
+        let addr = MaybeUninit::<*mut c_char>::uninit().as_mut_ptr();
+        let master = MaybeUninit::<*mut c_char>::uninit().as_mut_ptr();
+        let priv_key = MaybeUninit::<*mut c_char>::uninit().as_mut_ptr();
+        let mn = MaybeUninit::<*mut c_char>::uninit().as_mut_ptr();
+
+        eth_generate(strength, language, addr, priv_key, master, mn);
+
+        unsafe {
+            let addr = CString::from_raw(*addr);
+            let master = CString::from_raw(*master);
+            let priv_key = CString::from_raw(*priv_key);
+            let mn = CString::from_raw(*mn);
+
+            println!("addr: {:?}", addr);
+            println!("master: {:?}", master);
+            println!("priv_key: {:?}", priv_key);
+            println!("mn: {:?}", mn);
+        }
+    }
 
     #[test]
     fn test_eth_from_mnemonic() {
