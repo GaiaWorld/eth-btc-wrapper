@@ -1,7 +1,5 @@
 use std::os::raw::c_char;
 use std::ffi::{ CStr, CString };
-use std::ptr;
-use std::mem::{self, MaybeUninit};
 
 use ethabi::{ Contract, Token };
 use primitive_types;
@@ -12,7 +10,7 @@ use hex::{ encode, decode };
 use tiny_hderive::bip32::ExtendedPrivKey;
 use bip39::{Mnemonic, MnemonicType, Language, Seed};
 
-use ethsign::{SecretKey, PublicKey};
+use ethsign::SecretKey;
 
 #[repr(C)]
 pub struct eth_tx_meta {
@@ -154,7 +152,7 @@ pub extern "C" fn eth_select_wallet(language: *const c_char, master_seed: *const
         decode(CStr::from_ptr(master_seed).to_str().unwrap()).unwrap()
     };
 
-    let language = unsafe {
+    let _language = unsafe {
         match CStr::from_ptr(language).to_str().unwrap() {
             "english" => Language::English,
             "chinese_simplified" => Language::ChineseSimplified,
@@ -240,7 +238,6 @@ pub extern "C" fn token_transfer_call_data(addr_to: *const c_char, value: *const
 mod test {
     use super::*;
     use hex::{encode, decode};
-    use std::ptr;
 
     #[test]
     fn test_get_public_key_by_mnemonic() {
@@ -264,7 +261,6 @@ mod test {
         let addr = MaybeUninit::<*mut c_char>::uninit().as_mut_ptr();
         let master_seed = CString::new("76f1d5cf855301e7afdd294f8ec9459b59f1b323a11b23004762fc5cd5b4dec096825f63494760083eb9073c8fa137f1a9df6b426a20a77e0494e1a1a2a24dae").unwrap().into_raw();
         let priv_key = MaybeUninit::<*mut c_char>::uninit().as_mut_ptr();
-        let mn = MaybeUninit::<*mut c_char>::uninit().as_mut_ptr();
 
         eth_select_wallet(language, master_seed, 0, addr, priv_key);
 
@@ -326,10 +322,10 @@ mod test {
 
     #[test]
     fn mnemonic_to_privtekey() {
-        /// create a new randomly generated mnemonic phrase
+        // create a new randomly generated mnemonic phrase
         let mnemonic = Mnemonic::from_phrase("lunar exercise inside defense accuse reopen symbol oak milk top chunk axis", Language::English).unwrap();
 
-        /// get the HD wallet seed
+        // get the HD wallet seed
         let seed = Seed::new(&mnemonic, "");
 
         // get the HD wallet seed as raw bytes
