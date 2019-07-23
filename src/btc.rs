@@ -56,7 +56,6 @@ pub extern "C" fn btc_generate(strength: u32, network: *const c_char, language: 
 
     let seed = Seed::new(&Mnemonic::from_phrase(phrase, language).unwrap(), pass_phrase);
     let extkey = ExtendedPrivKey::new_master(network, seed.as_bytes()).unwrap();
-    println!("extkey: {:?}", extkey);
 
     unsafe {
         *root_xpriv = CString::new(extkey.to_string()).unwrap().into_raw();
@@ -68,7 +67,41 @@ pub extern "C" fn btc_generate(strength: u32, network: *const c_char, language: 
 
 #[no_mangle]
 pub extern "C" fn btc_from_mnemonic(mnemonic: *const c_char, network: *const c_char, language: *const c_char, pass_phrase: *const c_char, root_xpriv: *mut *mut c_char, root_seed: *mut *mut c_char) -> i32 {
-    unimplemented!();
+    let language = unsafe {
+        match CStr::from_ptr(language).to_str().unwrap() {
+            "english" => Language::English,
+            "chinese_simplified" => Language::ChineseSimplified,
+            "chinese_traditional" => Language::ChineseTraditional,
+            _ => return -1,
+        }
+    };
+
+    let network = unsafe {
+        match CStr::from_ptr(network).to_str().unwrap() {
+            "mainnet" => Network::Bitcoin,
+            "testnet" => Network::Testnet,
+            "regtest" => Network::Regtest,
+            _ => return -1,
+        }
+    };
+
+    let pass_phrase = unsafe {
+        CStr::from_ptr(pass_phrase).to_str().unwrap()
+    };
+
+    let mnemonic = unsafe {
+        CStr::from_ptr(mnemonic).to_str().unwrap()
+    };
+
+    let seed = Seed::new(&Mnemonic::from_phrase(mnemonic, language).unwrap(), pass_phrase);
+    let extkey = ExtendedPrivKey::new_master(network, seed.as_bytes()).unwrap();
+
+    unsafe {
+        *root_xpriv = CString::new(extkey.to_string()).unwrap().into_raw();
+        *root_seed = CString::new(encode(seed.as_bytes())).unwrap().into_raw();
+    }
+
+    return 0;
 }
 
 #[no_mangle]
@@ -97,6 +130,27 @@ mod test {
 
     use bitcoin::util::key::PrivateKey;
     use bitcoin::consensus::encode::serialize;
+
+    #[test]
+    fn test_btc_from_mnemonic() {
+        let network = CString::new("testnet").unwrap().into_raw();
+        let lanuage = CString::new("english").unwrap().into_raw();
+        let pass_phrase = CString::new("").unwrap().into_raw();
+        let mnemonic = CString::new("drum credit sport athlete mixed busy winter humor turtle auto snack abstract").unwrap().into_raw();
+
+        let root_xpriv = MaybeUninit::<*mut c_char>::uninit().as_mut_ptr();
+        let root_seed = MaybeUninit::<*mut c_char>::uninit().as_mut_ptr();
+
+        btc_from_mnemonic(mnemonic, network, lanuage, pass_phrase, root_xpriv, root_seed);
+
+        unsafe {
+            let root_xpriv = CString::from_raw(*root_xpriv);
+            let root_seed = CString::from_raw(*root_seed);
+
+            println!("root_xpriv: {:?}", root_xpriv);
+            println!("root_seed: {:?}", root_seed);
+        }
+    }
 
     #[test]
     fn test_btc_generate() {
