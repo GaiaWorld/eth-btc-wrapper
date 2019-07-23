@@ -9,16 +9,29 @@ use hex::{encode, decode};
 use bitcoin::util::psbt::serialize::Serialize;
 use bitcoin::consensus::encode::Encodable;
 
-#[repr(C)]
-pub struct TxInput {
-    prev_txid: *const c_char,
-    index: u32,
+#[no_mangle]
+pub extern "C" fn btc_generate(strength: u32, network: *const c_char, language: *const c_char, pass_phrase: *const c_char, root_xpriv: *mut *mut c_char, mnemonic: *mut *mut c_char) -> i32 {
+    unimplemented!();
 }
 
+#[no_mangle]
+pub extern "C" fn btc_from_mnemonic(mnemonic: *const c_char, network: *const c_char, language: *const c_char, pass_phrase: *const c_char, root_xpriv: *mut *mut c_char, root_seed: *mut *mut c_char) -> i32 {
+    unimplemented!();
+}
 
 #[no_mangle]
-pub extern "C" fn build_signed_btc_tx(inputs: TxInput, priv_key: *const c_char) -> *mut c_char {
-    return ptr::null_mut();
+pub extern "C" fn btc_from_seed(seed: *const c_char, network: *const c_char, language: *const c_char, root_xpriv: *mut *mut c_char) -> i32 {
+    unimplemented!();
+}
+
+#[no_mangle]
+pub extern "C" fn btc_private_key_of(root_xpriv: *const c_char, priv_key: *mut *mut c_char) -> i32 {
+    unimplemented!();
+}
+
+#[no_mangle]
+pub extern "C" fn btc_build_raw_transaction_from_single_address(priv_key: *const c_char, output: *const c_char, fee: *const c_char, raw_tx: *mut *mut c_char, tx_hash: *mut *mut c_char) -> i32 {
+    unimplemented!();
 }
 
 #[cfg(test)]
