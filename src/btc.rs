@@ -1,6 +1,7 @@
 use std::os::raw::c_char;
 use std::ffi::{ CStr, CString };
 use std::ptr;
+use std::str::FromStr;
 use bitcoin::blockdata::transaction::{
     TxIn, TxOut, Transaction, OutPoint
 };
@@ -9,8 +10,10 @@ use bitcoin_hashes::{sha256d, Hash};
 use hex::{encode, decode};
 use bitcoin::util::psbt::serialize::Serialize;
 use bitcoin::consensus::encode::Encodable;
-use bitcoin::util::bip32::ExtendedPrivKey;
+use bitcoin::util::bip32::{ExtendedPrivKey, DerivationPath};
 use bitcoin::network::constants::Network;
+
+use secp256k1::Secp256k1;
 
 use bip39::{Mnemonic, MnemonicType, Language, Seed};
 
@@ -67,6 +70,7 @@ pub extern "C" fn btc_generate(strength: u32, network: *const c_char, language: 
 
 #[no_mangle]
 pub extern "C" fn btc_from_mnemonic(mnemonic: *const c_char, network: *const c_char, language: *const c_char, pass_phrase: *const c_char, root_xpriv: *mut *mut c_char, root_seed: *mut *mut c_char) -> i32 {
+    assert!(!mnemonic.is_null() && !network.is_null() && !language.is_null() && !pass_phrase.is_null() && !root_xpriv.is_null() && !root_seed.is_null());
     let language = unsafe {
         match CStr::from_ptr(language).to_str().unwrap() {
             "english" => Language::English,
@@ -110,12 +114,34 @@ pub extern "C" fn btc_from_seed(seed: *const c_char, network: *const c_char, lan
 }
 
 #[no_mangle]
-pub extern "C" fn btc_private_key_of(root_xpriv: *const c_char, priv_key: *mut *mut c_char) -> i32 {
-    unimplemented!();
+pub extern "C" fn btc_private_key_of(index: u32, root_xpriv: *const c_char, priv_key: *mut *mut c_char) -> i32 {
+    assert!(!root_xpriv.is_null() && !priv_key.is_null());
+    let root_xpriv = unsafe {
+        CStr::from_ptr(root_xpriv).to_str().unwrap()
+    };
+
+    let secp = Secp256k1::new();
+    let extkey = ExtendedPrivKey::from_str(root_xpriv).unwrap();
+
+    let path = {
+        match extkey.network {
+            Network::Bitcoin => format!("m/44'/0'/0'/0/{:?}", index),
+            Network::Testnet => format!("m/44'/1'/0'/0/{:?}", index),
+            Network::Regtest => format!("m/44'/1'/0'/0/{:?}", index),
+        }
+    };
+
+    let private_key = extkey.derive_priv(&secp, &DerivationPath::from_str(&path).unwrap()).unwrap().private_key;
+
+    unsafe {
+        *priv_key = CString::new(private_key.to_wif()).unwrap().into_raw();
+    }
+
+    return 0;
 }
 
 #[no_mangle]
-pub extern "C" fn btc_build_raw_transaction_from_single_address(priv_key: *const c_char, output: *const c_char, fee: *const c_char, raw_tx: *mut *mut c_char, tx_hash: *mut *mut c_char) -> i32 {
+pub extern "C" fn btc_build_raw_transaction_from_single_address(priv_key: *const c_char, input: *const c_char, output: *const c_char, fee: *const c_char, raw_tx: *mut *mut c_char, tx_hash: *mut *mut c_char) -> i32 {
     unimplemented!();
 }
 
@@ -130,6 +156,19 @@ mod test {
 
     use bitcoin::util::key::PrivateKey;
     use bitcoin::consensus::encode::serialize;
+
+    #[test]
+    fn test_btc_private_key_of() {
+        let index = 0;
+        let priv_key = MaybeUninit::<*mut c_char>::uninit().as_mut_ptr();
+        let root_xpriv = CString::new("tprv8ZgxMBicQKsPeHCMLEwizg7ohLfdw9bvs5iPHBmvrQxvAEsaXb8S8oEMZWLbCKjvDAYJXeWp4SuXfMs8PiGawwZsM9sxyKQV6APtrJTKJwV").unwrap().into_raw();
+
+        btc_private_key_of(index, root_xpriv, priv_key);
+        unsafe {
+            let priv_key = CString::from_raw(*priv_key);
+            println!("priv_key: {:?}", priv_key);
+        }
+    }
 
     #[test]
     fn test_btc_from_mnemonic() {
