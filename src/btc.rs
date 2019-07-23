@@ -43,7 +43,7 @@ pub extern "C" fn btc_generate(strength: u32, network: *const c_char, language: 
 
     let network = unsafe {
         match CStr::from_ptr(network).to_str().unwrap() {
-            "mainnet" => Network::Bitcoin,
+            "livenet" => Network::Bitcoin,
             "testnet" => Network::Testnet,
             "regtest" => Network::Regtest,
             _ => return -1,
@@ -82,7 +82,7 @@ pub extern "C" fn btc_from_mnemonic(mnemonic: *const c_char, network: *const c_c
 
     let network = unsafe {
         match CStr::from_ptr(network).to_str().unwrap() {
-            "mainnet" => Network::Bitcoin,
+            "livenet" => Network::Bitcoin,
             "testnet" => Network::Testnet,
             "regtest" => Network::Regtest,
             _ => return -1,
@@ -110,7 +110,35 @@ pub extern "C" fn btc_from_mnemonic(mnemonic: *const c_char, network: *const c_c
 
 #[no_mangle]
 pub extern "C" fn btc_from_seed(seed: *const c_char, network: *const c_char, language: *const c_char, root_xpriv: *mut *mut c_char) -> i32 {
-    unimplemented!();
+    assert!(!seed.is_null() && !network.is_null() && !language.is_null() && !root_xpriv.is_null());
+    let language = unsafe {
+        match CStr::from_ptr(language).to_str().unwrap() {
+            "english" => Language::English,
+            "chinese_simplified" => Language::ChineseSimplified,
+            "chinese_traditional" => Language::ChineseTraditional,
+            _ => return -1,
+        }
+    };
+
+    let network = unsafe {
+        match CStr::from_ptr(network).to_str().unwrap() {
+            "livenet" => Network::Bitcoin,
+            "testnet" => Network::Testnet,
+            "regtest" => Network::Regtest,
+            _ => return -1,
+        }
+    };
+
+    let seed = unsafe {
+        CStr::from_ptr(seed).to_str().unwrap()
+    };
+
+    let extkey = ExtendedPrivKey::new_master(network, &decode(&seed).unwrap()).unwrap();
+    unsafe {
+        *root_xpriv = CString::new(extkey.to_string()).unwrap().into_raw();
+    }
+
+    return 0;
 }
 
 #[no_mangle]
@@ -156,6 +184,22 @@ mod test {
 
     use bitcoin::util::key::PrivateKey;
     use bitcoin::consensus::encode::serialize;
+
+    #[test]
+    fn test_btc_from_seed() {
+        let seed = CString::new("780a5414809924cbbd4ad4e7fa41d5bfc70d465e2aa74b131abb06775b8f2fea1143fb88e3b724b26f89eed22b457b83730b63d186e5b437c98a09a45658aa07").unwrap().into_raw();
+        let network = CString::new("testnet").unwrap().into_raw();
+        let language = CString::new("english").unwrap().into_raw();
+
+        let root_xpriv = MaybeUninit::<*mut c_char>::uninit().as_mut_ptr();
+
+        btc_from_seed(seed, network, language, root_xpriv);
+
+        unsafe {
+            let root_xpriv = CString::from_raw(*root_xpriv);
+            println!("root xpriv: {:?}", root_xpriv);
+        }
+    }
 
     #[test]
     fn test_btc_private_key_of() {
