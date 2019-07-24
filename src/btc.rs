@@ -7,14 +7,14 @@ use bitcoin::blockdata::transaction::{
 };
 use bitcoin::blockdata::script::{Script, Builder};
 use bitcoin::blockdata::opcodes;
-use bitcoin_hashes::Hash;
+use bitcoin_hashes::{ripemd160, sha256, Hash, HashEngine, hex::ToHex};
 use hex::{encode, decode};
 use bitcoin::util::psbt::serialize::Serialize;
 use bitcoin::util::bip32::{ExtendedPrivKey, DerivationPath};
 use bitcoin::network::constants::Network;
-use bitcoin::util::key::PrivateKey;
+use bitcoin::util::key::{PrivateKey, PublicKey};
 use bitcoin::util::hash::BitcoinHash;
-use bitcoin::util::base58::from_check;
+use bitcoin::util::base58::{check_encode_slice, from_check};
 
 use secp256k1::Message;
 use secp256k1::Secp256k1;
@@ -299,6 +299,47 @@ pub extern "C" fn btc_build_raw_transaction_from_single_address(address: *const 
     return 0;
 }
 
+#[no_mangle]
+pub extern "C" fn btc_to_address(network: *const c_char, priv_key: *const c_char, address: *mut *mut c_char) -> i32 {
+    assert!(!network.is_null() && !priv_key.is_null() && !address.is_null());
+
+    let network = unsafe {
+        match CStr::from_ptr(network).to_str().unwrap() {
+            "livenet" => Network::Bitcoin,
+            "testnet" => Network::Testnet,
+            "regtest" => Network::Regtest,
+            _ => return -1,
+        }
+    };
+
+    let secp = Secp256k1::new();
+    let priv_key = unsafe {
+        PrivateKey::from_wif(CStr::from_ptr(priv_key).to_str().unwrap()).unwrap()
+    };
+
+    let public_key = PublicKey::from_private_key(&secp, &priv_key);
+    let sha256_pub_key = sha256::Hash::hash(&public_key.to_bytes());
+    let ripemd160_pub_key = ripemd160::Hash::hash(&decode(sha256_pub_key.to_hex()).unwrap());
+
+    let btc_address = {
+        let mut res = vec![];
+        match network {
+            Network::Bitcoin => res.push(0x00),
+            _ => res.push(0x6F),
+        }
+
+        res.extend_from_slice(&decode(ripemd160_pub_key.to_hex()).unwrap());
+        check_encode_slice(&res)
+    };
+
+
+    unsafe {
+        *address = CString::new(btc_address).unwrap().into_raw();
+    }
+
+    return 0;
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -310,6 +351,21 @@ mod test {
 
     use bitcoin::util::key::PrivateKey;
     use bitcoin::consensus::encode::serialize;
+
+    #[test]
+    fn test_btc_to_address() {
+        let network = CString::new("testnet").unwrap().into_raw();
+        let priv_key = CString::new("cRVuQd8qSuSRifRverDNAKmBGgDNDu55mV2gtyoBFT4gwHeuJFQ4").unwrap().into_raw();
+
+        let address = MaybeUninit::<*mut c_char>::uninit().as_mut_ptr();
+
+        btc_to_address(network, priv_key, address);
+
+        unsafe {
+            let address = CString::from_raw(*address);
+            println!("address: {:?}", address);
+        }
+    }
 
     #[test]
     fn test_btc_build_raw_transaction_from_single_address() {

@@ -238,6 +238,7 @@ pub extern "C" fn token_transfer_call_data(addr_to: *const c_char, value: *const
 mod test {
     use super::*;
     use hex::{encode, decode};
+    use std::mem::MaybeUninit;
 
     #[test]
     fn test_get_public_key_by_mnemonic() {
