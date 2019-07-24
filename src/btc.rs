@@ -7,7 +7,7 @@ use bitcoin::blockdata::transaction::{
 };
 use bitcoin::blockdata::script::{Script, Builder};
 use bitcoin::blockdata::opcodes;
-use bitcoin_hashes::{ripemd160, sha256, Hash, HashEngine, hex::ToHex};
+use bitcoin_hashes::{ripemd160, sha256, Hash, hex::ToHex};
 use hex::{encode, decode};
 use bitcoin::util::psbt::serialize::Serialize;
 use bitcoin::util::bip32::{ExtendedPrivKey, DerivationPath};
@@ -340,6 +340,31 @@ pub extern "C" fn btc_to_address(network: *const c_char, priv_key: *const c_char
     return 0;
 }
 
+#[no_mangle]
+pub extern "C" fn btc_build_pay_to_pub_key_hash(address: *const c_char, script_pubkey: *mut *mut c_char) -> i32 {
+    assert!(!address.is_null() && !script_pubkey.is_null());
+
+    let address = unsafe {
+        from_check(CStr::from_ptr(address).to_str().unwrap()).unwrap()[1..].to_vec()
+    };
+
+    let script = {
+        let builder = Builder::new();
+        builder.push_opcode(opcodes::all::OP_DUP)
+                .push_opcode(opcodes::all::OP_HASH160)
+                .push_slice(&address)
+                .push_opcode(opcodes::all::OP_EQUALVERIFY)
+                .push_opcode(opcodes::all::OP_CHECKSIG)
+                .into_script()
+    };
+
+    unsafe {
+        *script_pubkey = CString::new(encode(&script.into_bytes())).unwrap().into_raw();
+    }
+
+    return 0;
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -351,6 +376,20 @@ mod test {
 
     use bitcoin::util::key::PrivateKey;
     use bitcoin::consensus::encode::serialize;
+
+    #[test]
+    fn test_btc_build_pay_to_pub_key_hash() {
+        let address = CString::new("moDaczM8zMvxvM2GEQ5PC4o8S2iYhN1zZC").unwrap().into_raw();
+
+        let script_pubkey = MaybeUninit::<*mut c_char>::uninit().as_mut_ptr();
+
+        btc_build_pay_to_pub_key_hash(address, script_pubkey);
+
+        unsafe {
+            let script = CString::from_raw(*script_pubkey);
+            println!("script: {:?}", script);
+        }
+    }
 
     #[test]
     fn test_btc_to_address() {
