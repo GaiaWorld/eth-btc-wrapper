@@ -3,6 +3,8 @@ use std::os::raw::c_char;
 use secp256k1::{Secp256k1, Message, SecretKey};
 use hex::{decode, encode};
 
+use bitcoin_hashes::{sha256, Hash};
+
 #[no_mangle]
 pub extern "C" fn rust_sign(priv_key: *const c_char, msg: *const c_char, signature: *mut *mut c_char) -> i32 {
     assert!(!priv_key.is_null() && !msg.is_null() && !signature.is_null());
@@ -41,10 +43,41 @@ pub extern "C" fn rust_sign(priv_key: *const c_char, msg: *const c_char, signatu
     return 0;
 }
 
+#[no_mangle]
+pub extern "C" fn rust_sha256(data: *const c_char, hash: *mut *mut c_char) -> i32 {
+    assert!(!data.is_null() && !hash.is_null());
+
+    let data = unsafe {
+        match decode(CStr::from_ptr(data).to_str().unwrap()) {
+            Ok(d) => d,
+            Err(_) => return -1,
+        }
+    };
+
+    unsafe {
+        *hash = CString::new(sha256::Hash::hash(&data).to_string()).unwrap().into_raw();
+    }
+
+    return 0;
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
     use std::mem::MaybeUninit;
+
+    #[test]
+    fn test_sha256() {
+        let data = CString::new(encode("hello world")).unwrap().into_raw();
+        let hash = MaybeUninit::<*mut c_char>::uninit().as_mut_ptr();
+
+        rust_sha256(data, hash);
+
+        unsafe {
+            let hash = CString::from_raw(*hash);
+            println!("hash: {:?}", hash);
+        }
+    }
 
     #[test]
     fn test_sign() {
