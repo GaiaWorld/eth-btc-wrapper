@@ -12,18 +12,6 @@ use tiny_hderive::bip32::ExtendedPrivKey;
 
 use ethsign::SecretKey;
 
-#[repr(C)]
-pub struct eth_tx_meta {
-    nonce: *const c_char,
-    to: *const c_char,
-    value: *const c_char,
-    gas: *const c_char,
-    gas_price: *const c_char,
-    data: *const c_char,
-    priv_key: *const c_char,
-    chain_id: u8,
-}
-
 #[no_mangle]
 pub extern "C" fn dealloc_rust_cstring(cstring: *mut c_char) {
     unsafe {
