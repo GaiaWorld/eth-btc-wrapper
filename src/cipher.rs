@@ -11,7 +11,7 @@ use hex::{encode, decode};
 
 // returned cipher text size is plain text size + 8 bytes nonce + 16 key size
 #[no_mangle]
-pub extern "C" fn encrypt(key: *const c_char, aad: *const c_char, plain_text: *const c_char, out_cipher_text: *mut *mut c_char) -> i32 {
+pub extern "C" fn rust_encrypt(key: *const c_char, aad: *const c_char, plain_text: *const c_char, out_cipher_text: *mut *mut c_char) -> i32 {
     assert!(!key.is_null() && !plain_text.is_null() && !out_cipher_text.is_null());
 
     let key = unsafe {
@@ -58,7 +58,7 @@ pub extern "C" fn encrypt(key: *const c_char, aad: *const c_char, plain_text: *c
 }
 
 #[no_mangle]
-pub extern "C" fn decrypt(key: *const c_char, aad: *const c_char, cipher_text: *const c_char, out_plain_text: *mut *mut c_char) -> i32 {
+pub extern "C" fn rust_decrypt(key: *const c_char, aad: *const c_char, cipher_text: *const c_char, out_plain_text: *mut *mut c_char) -> i32 {
     assert!(!key.is_null() && !cipher_text.is_null() && !out_plain_text.is_null());
 
     let key = unsafe {
@@ -127,13 +127,13 @@ mod test {
         let out_cipher_text = MaybeUninit::<*mut c_char>::uninit().as_mut_ptr();
         let out_plain_text = MaybeUninit::<*mut c_char>::uninit().as_mut_ptr();
 
-        encrypt(key, aad, plain_text, out_cipher_text);
+        rust_encrypt(key, aad, plain_text, out_cipher_text);
 
         unsafe {
             let out_cipher = CString::from_raw(*out_cipher_text);
             println!("out_cipher: {:?}", out_cipher);
 
-            decrypt(key, aad, *out_cipher_text, out_plain_text);
+            rust_decrypt(key, aad, *out_cipher_text, out_plain_text);
 
             let out_plain = CString::from_raw(*out_plain_text);
             let output = decode(out_plain.to_str().unwrap()).unwrap();
