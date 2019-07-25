@@ -50,9 +50,8 @@ pub extern "C" fn eth_from_mnemonic(
     let privte_key = SecretKey::from_raw(&ext.secret()).unwrap();
 
     unsafe {
-        *address = CString::new(encode(privte_key.public().address()))
-            .unwrap()
-            .into_raw();
+        let addr = "0x".to_string() + &encode(privte_key.public().address());
+        *address = CString::new(addr).unwrap().into_raw();
         *priv_key = CString::new(encode(ext.secret())).unwrap().into_raw();
         *master_seed = CString::new(encode(seed)).unwrap().into_raw();
     }
@@ -112,9 +111,8 @@ pub extern "C" fn eth_generate(
     let privte_key = SecretKey::from_raw(&ext.secret()).unwrap();
 
     unsafe {
-        *address = CString::new(encode(privte_key.public().address()))
-            .unwrap()
-            .into_raw();
+        let addr = "0x".to_string() + &encode(privte_key.public().address());
+        *address = CString::new(addr).unwrap().into_raw();
         *priv_key = CString::new(encode(ext.secret())).unwrap().into_raw();
         *master_seed = CString::new(encode(seed)).unwrap().into_raw();
         *mnemonic = CString::new(phrase).unwrap().into_raw();
@@ -230,9 +228,8 @@ pub extern "C" fn eth_select_wallet(
     let privte_key = SecretKey::from_raw(&ext.secret()).unwrap();
 
     unsafe {
-        *address = CString::new(encode(privte_key.public().address()))
-            .unwrap()
-            .into_raw();
+        let addr = "0x".to_string() + &encode(privte_key.public().address());
+        *address = CString::new(addr).unwrap().into_raw();
         *priv_key = CString::new(encode(ext.secret())).unwrap().into_raw();
     }
 
@@ -396,7 +393,7 @@ mod test {
 
             assert_eq!(
                 addr.to_str().unwrap(),
-                "151ab25145928bf6dd013f6de3446fd6d67ad8c9"
+                "0x151ab25145928bf6dd013f6de3446fd6d67ad8c9"
             );
             assert_eq!(master.to_str().unwrap(), "065a6b481570379561574676ad61c96caf3e05ebd1d79c712f3dec938be73bbffd6ad02bd62ad90d1a9d6f00551134d480e1166fa8d0be2cc4d7132dd66a282c");
             assert_eq!(
