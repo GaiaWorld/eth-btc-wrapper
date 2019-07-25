@@ -1,14 +1,14 @@
+use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
-use std::ffi::{ CStr, CString };
 
-use ethabi::{ Contract, Token };
-use primitive_types;
+use ethabi::{Contract, Token};
 use ethereum_tx_sign::RawTransaction;
-use ethereum_types::{ U256, H160, H256 };
-use hex::{ encode, decode };
+use ethereum_types::{H160, H256, U256};
+use hex::{decode, encode};
+use primitive_types;
 
+use bip39::{Language, Mnemonic, MnemonicType, Seed};
 use tiny_hderive::bip32::ExtendedPrivKey;
-use bip39::{Mnemonic, MnemonicType, Language, Seed};
 
 use ethsign::SecretKey;
 
@@ -32,11 +32,21 @@ pub extern "C" fn dealloc_rust_cstring(cstring: *mut c_char) {
 }
 
 #[no_mangle]
-pub extern "C" fn eth_from_mnemonic(mnemonic: *const c_char, language: *const c_char, address: *mut *mut c_char, priv_key: *mut *mut c_char, master_seed: *mut *mut c_char) -> i32 {
-    assert!(!mnemonic.is_null() && !language.is_null() && !address.is_null() && !priv_key.is_null() && !master_seed.is_null());
-    let mnemonic = unsafe {
-        CStr::from_ptr(mnemonic).to_str().unwrap()
-    };
+pub extern "C" fn eth_from_mnemonic(
+    mnemonic: *const c_char,
+    language: *const c_char,
+    address: *mut *mut c_char,
+    priv_key: *mut *mut c_char,
+    master_seed: *mut *mut c_char,
+) -> i32 {
+    assert!(
+        !mnemonic.is_null()
+            && !language.is_null()
+            && !address.is_null()
+            && !priv_key.is_null()
+            && !master_seed.is_null()
+    );
+    let mnemonic = unsafe { CStr::from_ptr(mnemonic).to_str().unwrap() };
 
     let language = unsafe {
         match CStr::from_ptr(language).to_str().unwrap() {
@@ -52,7 +62,9 @@ pub extern "C" fn eth_from_mnemonic(mnemonic: *const c_char, language: *const c_
     let privte_key = SecretKey::from_raw(&ext.secret()).unwrap();
 
     unsafe {
-        *address = CString::new(encode(privte_key.public().address())).unwrap().into_raw();
+        *address = CString::new(encode(privte_key.public().address()))
+            .unwrap()
+            .into_raw();
         *priv_key = CString::new(encode(ext.secret())).unwrap().into_raw();
         *master_seed = CString::new(encode(seed)).unwrap().into_raw();
     }
@@ -61,8 +73,21 @@ pub extern "C" fn eth_from_mnemonic(mnemonic: *const c_char, language: *const c_
 }
 
 #[no_mangle]
-pub extern "C" fn eth_generate(strength: u32, language: *const c_char, address: *mut *mut c_char, priv_key: *mut *mut c_char, master_seed: *mut *mut c_char, mnemonic: *mut *mut c_char) -> i32 {
-    assert!(!language.is_null() && !address.is_null() && !priv_key.is_null() && !master_seed.is_null() && !mnemonic.is_null());
+pub extern "C" fn eth_generate(
+    strength: u32,
+    language: *const c_char,
+    address: *mut *mut c_char,
+    priv_key: *mut *mut c_char,
+    master_seed: *mut *mut c_char,
+    mnemonic: *mut *mut c_char,
+) -> i32 {
+    assert!(
+        !language.is_null()
+            && !address.is_null()
+            && !priv_key.is_null()
+            && !master_seed.is_null()
+            && !mnemonic.is_null()
+    );
     if strength % 32 != 0 || strength < 128 {
         return -1;
     }
@@ -99,7 +124,9 @@ pub extern "C" fn eth_generate(strength: u32, language: *const c_char, address: 
     let privte_key = SecretKey::from_raw(&ext.secret()).unwrap();
 
     unsafe {
-        *address = CString::new(encode(privte_key.public().address())).unwrap().into_raw();
+        *address = CString::new(encode(privte_key.public().address()))
+            .unwrap()
+            .into_raw();
         *priv_key = CString::new(encode(ext.secret())).unwrap().into_raw();
         *master_seed = CString::new(encode(seed)).unwrap().into_raw();
         *mnemonic = CString::new(phrase).unwrap().into_raw();
@@ -109,20 +136,64 @@ pub extern "C" fn eth_generate(strength: u32, language: *const c_char, address: 
 }
 
 #[no_mangle]
-pub extern "C" fn eth_sign_raw_transaction(chain_id: u8, nonce: *const c_char, to: *const c_char, value: *const c_char, gas: *const c_char, gas_price: *const c_char, data: *const c_char, priv_key: *const c_char, tx_hash: *mut *mut c_char, serialized: *mut *mut c_char) -> i32 {
-    assert!(!nonce.is_null() && !to.is_null() && !value.is_null() && !gas.is_null() && !gas_price.is_null() && !priv_key.is_null() && !tx_hash.is_null() && !serialized.is_null());
+pub extern "C" fn eth_sign_raw_transaction(
+    chain_id: u8,
+    nonce: *const c_char,
+    to: *const c_char,
+    value: *const c_char,
+    gas: *const c_char,
+    gas_price: *const c_char,
+    data: *const c_char,
+    priv_key: *const c_char,
+    tx_hash: *mut *mut c_char,
+    serialized: *mut *mut c_char,
+) -> i32 {
+    assert!(
+        !nonce.is_null()
+            && !to.is_null()
+            && !value.is_null()
+            && !gas.is_null()
+            && !gas_price.is_null()
+            && !priv_key.is_null()
+            && !tx_hash.is_null()
+            && !serialized.is_null()
+    );
 
-    let nonce = U256::from(decode(unsafe { CStr::from_ptr(nonce).to_str().unwrap() }).unwrap().as_slice());
-    let to = Some(H160::from(decode(unsafe { CStr::from_ptr(to).to_str().unwrap() }).unwrap().as_slice()));
-    let value = U256::from(decode(unsafe { CStr::from_ptr(value).to_str().unwrap() }).unwrap().as_slice());
-    let gas = U256::from(decode(unsafe { CStr::from_ptr(gas).to_str().unwrap() }).unwrap().as_slice());
-    let gas_price = U256::from(decode(unsafe { CStr::from_ptr(gas_price).to_str().unwrap() }).unwrap().as_slice());
-    let priv_key = H256::from(decode(unsafe { CStr::from_ptr(priv_key).to_str().unwrap() }).unwrap().as_slice());
+    let nonce = U256::from(
+        decode(unsafe { CStr::from_ptr(nonce).to_str().unwrap() })
+            .unwrap()
+            .as_slice(),
+    );
+    let to = Some(H160::from(
+        decode(unsafe { CStr::from_ptr(to).to_str().unwrap() })
+            .unwrap()
+            .as_slice(),
+    ));
+    let value = U256::from(
+        decode(unsafe { CStr::from_ptr(value).to_str().unwrap() })
+            .unwrap()
+            .as_slice(),
+    );
+    let gas = U256::from(
+        decode(unsafe { CStr::from_ptr(gas).to_str().unwrap() })
+            .unwrap()
+            .as_slice(),
+    );
+    let gas_price = U256::from(
+        decode(unsafe { CStr::from_ptr(gas_price).to_str().unwrap() })
+            .unwrap()
+            .as_slice(),
+    );
+    let priv_key = H256::from(
+        decode(unsafe { CStr::from_ptr(priv_key).to_str().unwrap() })
+            .unwrap()
+            .as_slice(),
+    );
 
     let data = if data.is_null() {
         vec![]
     } else {
-        decode(unsafe {CStr::from_ptr(data).to_str().unwrap()}).unwrap()
+        decode(unsafe { CStr::from_ptr(data).to_str().unwrap() }).unwrap()
     };
 
     let raw_tx = RawTransaction {
@@ -145,12 +216,16 @@ pub extern "C" fn eth_sign_raw_transaction(chain_id: u8, nonce: *const c_char, t
 }
 
 #[no_mangle]
-pub extern "C" fn eth_select_wallet(language: *const c_char, master_seed: *const c_char, index: u32, address: *mut *mut c_char, priv_key: *mut *mut c_char) -> i32 {
+pub extern "C" fn eth_select_wallet(
+    language: *const c_char,
+    master_seed: *const c_char,
+    index: u32,
+    address: *mut *mut c_char,
+    priv_key: *mut *mut c_char,
+) -> i32 {
     assert!(!master_seed.is_null() && !address.is_null() && !priv_key.is_null());
 
-    let master_seed = unsafe {
-        decode(CStr::from_ptr(master_seed).to_str().unwrap()).unwrap()
-    };
+    let master_seed = unsafe { decode(CStr::from_ptr(master_seed).to_str().unwrap()).unwrap() };
 
     let _language = unsafe {
         match CStr::from_ptr(language).to_str().unwrap() {
@@ -167,7 +242,9 @@ pub extern "C" fn eth_select_wallet(language: *const c_char, master_seed: *const
     let privte_key = SecretKey::from_raw(&ext.secret()).unwrap();
 
     unsafe {
-        *address = CString::new(encode(privte_key.public().address())).unwrap().into_raw();
+        *address = CString::new(encode(privte_key.public().address()))
+            .unwrap()
+            .into_raw();
         *priv_key = CString::new(encode(ext.secret())).unwrap().into_raw();
     }
 
@@ -175,7 +252,11 @@ pub extern "C" fn eth_select_wallet(language: *const c_char, master_seed: *const
 }
 
 #[no_mangle]
-pub extern "C" fn get_public_key_by_mnemonic(mnemonic: *const c_char, language: *const c_char, public_key: *mut *mut c_char) -> i32 {
+pub extern "C" fn get_public_key_by_mnemonic(
+    mnemonic: *const c_char,
+    language: *const c_char,
+    public_key: *mut *mut c_char,
+) -> i32 {
     assert!(!mnemonic.is_null() && !language.is_null() && !public_key.is_null());
     let language = unsafe {
         match CStr::from_ptr(language).to_str().unwrap() {
@@ -186,15 +267,15 @@ pub extern "C" fn get_public_key_by_mnemonic(mnemonic: *const c_char, language: 
         }
     };
 
-    let mnemonic = unsafe {
-        CStr::from_ptr(mnemonic).to_str().unwrap()
-    };
+    let mnemonic = unsafe { CStr::from_ptr(mnemonic).to_str().unwrap() };
 
     let seed = Seed::new(&Mnemonic::from_phrase(mnemonic, language).unwrap(), "");
     let ext = ExtendedPrivKey::derive(seed.as_bytes(), "m/44'/60'/0'/0/0").unwrap();
     let privte_key = SecretKey::from_raw(&ext.secret()).unwrap();
     unsafe {
-        *public_key = CString::new(encode(&privte_key.public().bytes().to_vec())).unwrap().into_raw();
+        *public_key = CString::new(encode(&privte_key.public().bytes().to_vec()))
+            .unwrap()
+            .into_raw();
     }
 
     return 0;
@@ -216,7 +297,10 @@ pub extern "C" fn token_balance_call_data(addr: *const c_char) -> *mut c_char {
 }
 
 #[no_mangle]
-pub extern "C" fn token_transfer_call_data(addr_to: *const c_char, value: *const c_char) -> *mut c_char {
+pub extern "C" fn token_transfer_call_data(
+    addr_to: *const c_char,
+    value: *const c_char,
+) -> *mut c_char {
     unsafe {
         let addr_to = String::from_utf8_lossy(CStr::from_ptr(addr_to).to_bytes()).to_string();
         let addr_to = primitive_types::H160::from_slice(decode(addr_to).unwrap().as_slice());
@@ -237,12 +321,16 @@ pub extern "C" fn token_transfer_call_data(addr_to: *const c_char, value: *const
 #[cfg(test)]
 mod test {
     use super::*;
-    use hex::{encode, decode};
+    use hex::{decode, encode};
     use std::mem::MaybeUninit;
 
     #[test]
     fn test_get_public_key_by_mnemonic() {
-        let m = CString::new("lunar exercise inside defense accuse reopen symbol oak milk top chunk axis").unwrap().into_raw();
+        let m = CString::new(
+            "lunar exercise inside defense accuse reopen symbol oak milk top chunk axis",
+        )
+        .unwrap()
+        .into_raw();
         let lan = CString::new("english").unwrap().into_raw();
 
         let public_key = MaybeUninit::<*mut c_char>::uninit().as_mut_ptr();
@@ -301,7 +389,10 @@ mod test {
 
     #[test]
     fn test_eth_from_mnemonic() {
-        let m = CString::new("lunar exercise inside defense accuse reopen symbol oak milk top chunk axis").unwrap();
+        let m = CString::new(
+            "lunar exercise inside defense accuse reopen symbol oak milk top chunk axis",
+        )
+        .unwrap();
         let lan = CString::new("english").unwrap();
 
         let addr = MaybeUninit::<*mut c_char>::uninit().as_mut_ptr();
@@ -315,16 +406,26 @@ mod test {
             let master = CString::from_raw(*master as *mut c_char);
             let priv_key = CString::from_raw(*priv_key as *mut c_char);
 
-            assert_eq!(addr.to_str().unwrap(), "151ab25145928bf6dd013f6de3446fd6d67ad8c9");
+            assert_eq!(
+                addr.to_str().unwrap(),
+                "151ab25145928bf6dd013f6de3446fd6d67ad8c9"
+            );
             assert_eq!(master.to_str().unwrap(), "065a6b481570379561574676ad61c96caf3e05ebd1d79c712f3dec938be73bbffd6ad02bd62ad90d1a9d6f00551134d480e1166fa8d0be2cc4d7132dd66a282c");
-            assert_eq!(priv_key.to_str().unwrap(), "ff33ff993b1782d16427276a9cc966b8b995c118f0182243152a882b8d3e3faf");
+            assert_eq!(
+                priv_key.to_str().unwrap(),
+                "ff33ff993b1782d16427276a9cc966b8b995c118f0182243152a882b8d3e3faf"
+            );
         }
     }
 
     #[test]
     fn mnemonic_to_privtekey() {
         // create a new randomly generated mnemonic phrase
-        let mnemonic = Mnemonic::from_phrase("lunar exercise inside defense accuse reopen symbol oak milk top chunk axis", Language::English).unwrap();
+        let mnemonic = Mnemonic::from_phrase(
+            "lunar exercise inside defense accuse reopen symbol oak milk top chunk axis",
+            Language::English,
+        )
+        .unwrap();
 
         // get the HD wallet seed
         let seed = Seed::new(&mnemonic, "");
@@ -332,7 +433,8 @@ mod test {
         // get the HD wallet seed as raw bytes
         let seed_bytes: &[u8] = seed.as_bytes();
 
-        let expected_prviate_key = decode("ff33ff993b1782d16427276a9cc966b8b995c118f0182243152a882b8d3e3faf").unwrap();
+        let expected_prviate_key =
+            decode("ff33ff993b1782d16427276a9cc966b8b995c118f0182243152a882b8d3e3faf").unwrap();
 
         let ext = ExtendedPrivKey::derive(seed_bytes, "m/44'/60'/0'/0/0").unwrap();
         println!("ext: {:?}", encode(ext.secret()));
@@ -342,19 +444,27 @@ mod test {
     #[test]
     fn test_ethereum_tx_sign() {
         let nonce = CStr::from_bytes_with_nul(b"c9\0").unwrap().as_ptr();
-        let to = CStr::from_bytes_with_nul(b"14571A8f98301DB5dC5c7640A9C7f6CA5BEaB338\0").unwrap().as_ptr();
+        let to = CStr::from_bytes_with_nul(b"14571A8f98301DB5dC5c7640A9C7f6CA5BEaB338\0")
+            .unwrap()
+            .as_ptr();
         let value = CStr::from_bytes_with_nul(b"6666\0").unwrap().as_ptr();
         let gas_price = CStr::from_bytes_with_nul(b"14a817c800\0").unwrap().as_ptr();
         let gas = CStr::from_bytes_with_nul(b"6208\0").unwrap().as_ptr();
         let data = CString::new("12345678").unwrap().into_raw();
-        let priv_key = CStr::from_bytes_with_nul(b"abd952e991fb40a146291e6c537fc0db0d1b6de0a815df11efb7e73e1e50daf8\0").unwrap().as_ptr();
+        let priv_key = CStr::from_bytes_with_nul(
+            b"abd952e991fb40a146291e6c537fc0db0d1b6de0a815df11efb7e73e1e50daf8\0",
+        )
+        .unwrap()
+        .as_ptr();
 
         let tx_hash = MaybeUninit::<*mut c_char>::uninit().as_mut_ptr();
         let serialized = MaybeUninit::<*mut c_char>::uninit().as_mut_ptr();
         // ropsten
         let chain_id = 3;
 
-        eth_sign_raw_transaction(chain_id, nonce, to, value, gas, gas_price, data, priv_key, tx_hash, serialized);
+        eth_sign_raw_transaction(
+            chain_id, nonce, to, value, gas, gas_price, data, priv_key, tx_hash, serialized,
+        );
         unsafe {
             let tx_hash = CString::from_raw(*tx_hash);
             let serialized = CString::from_raw(*serialized);
