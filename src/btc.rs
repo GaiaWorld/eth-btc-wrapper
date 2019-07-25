@@ -1,16 +1,12 @@
 use bitcoin::blockdata::opcodes;
 use bitcoin::blockdata::script::{Builder, Script};
 use bitcoin::blockdata::transaction::{OutPoint, Transaction, TxIn, TxOut};
-use bitcoin_hashes::{ripemd160, sha256, Hash, hex::ToHex};
-use hex::{encode, decode};
 use bitcoin::util::psbt::serialize::Serialize;
 use bitcoin::util::bip32::{ExtendedPrivKey, DerivationPath};
 use bitcoin::network::constants::Network;
 use bitcoin::util::base58::{check_encode_slice, from_check};
-use bitcoin::util::bip32::{DerivationPath, ExtendedPrivKey};
 use bitcoin::util::hash::BitcoinHash;
 use bitcoin::util::key::{PrivateKey, PublicKey};
-use bitcoin::util::psbt::serialize::Serialize;
 use bitcoin_hashes::{hex::ToHex, ripemd160, sha256, Hash};
 use hex::{decode, encode};
 use std::convert::From;
