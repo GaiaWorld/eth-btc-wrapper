@@ -1,20 +1,21 @@
 #include "../wrapper.h"
+#include <stdio.h>
 
 int main() {
-    char key[16] = {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1};
-    char plain_text[8] = {2,2,2,2,2,2,2,2};
+    char* key = "b058d2931f46abb2a6062abcddf61d75";
+    char* nonce = "ed77b0e43daccec06c41f472";
+    char* aad = "a7e0f8";
+    char* plain_text = "6162";
 
-    char* cipher_text = rust_encrypt(key, plain_text, 8);
-    // 8 bytes nonce, 16 bytes key
-    char* decrypted = rust_decrypt(key, cipher_text, 8 + 16 + 8);
+    char* encrypted;
+    char* decrypted_plain_text;
 
-    // plain text length is equal to cipher text
-    for(int i = 0; i < 8; i++) {
-        printf("%d", decrypted[i]);
-    }
-    printf("\n");
+    rust_encrypt(key, nonce, aad, plain_text, &encrypted);
+    rust_decrypt(key, nonce, aad, encrypted, &decrypted_plain_text);
 
-    // deallocate memroy alloced from rust
-    dealloc_rust_buffer(decrypted, 8 + 16 + 8);
-    dealloc_rust_buffer(cipher_text, 8 + 16 + 8);
+    printf("encrypted: %s\n", encrypted);
+    printf("decrypted_plain_text: %s\n", decrypted_plain_text);
+
+    dealloc_rust_cstring(encrypted);
+    dealloc_rust_cstring(decrypted_plain_text);
 }
