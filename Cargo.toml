@@ -27,7 +27,6 @@ tiny-hderive = "0.2.1"
 tiny-bip39 = "0.6.2"
 ethsign = "0.6.1"
 rust-crypto = "0.2.36"
-rand = "0.7"
 
 [build-dependencies]
 
