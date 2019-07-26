@@ -1,12 +1,16 @@
+use hex::{decode, encode};
+use secp256k1::{Message, Secp256k1, SecretKey};
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
-use secp256k1::{Secp256k1, Message, SecretKey};
-use hex::{decode, encode};
 
 use bitcoin_hashes::{sha256, Hash};
 
 #[no_mangle]
-pub extern "C" fn rust_sign(priv_key: *const c_char, msg: *const c_char, signature: *mut *mut c_char) -> i32 {
+pub extern "C" fn rust_sign(
+    priv_key: *const c_char,
+    msg: *const c_char,
+    signature: *mut *mut c_char,
+) -> i32 {
     assert!(!priv_key.is_null() && !msg.is_null() && !signature.is_null());
 
     let priv_key = unsafe {
@@ -55,7 +59,9 @@ pub extern "C" fn rust_sha256(data: *const c_char, hash: *mut *mut c_char) -> i3
     };
 
     unsafe {
-        *hash = CString::new(sha256::Hash::hash(&data).to_string()).unwrap().into_raw();
+        *hash = CString::new(sha256::Hash::hash(&data).to_string())
+            .unwrap()
+            .into_raw();
     }
 
     return 0;

@@ -1,17 +1,25 @@
 use std::ffi::{CStr, CString};
-use std::os::raw::c_char;
 use std::iter::repeat;
+use std::os::raw::c_char;
 
-use crypto::aes_gcm::AesGcm;
+use crypto::aead::{AeadDecryptor, AeadEncryptor};
 use crypto::aes::KeySize;
-use crypto::aead::{AeadEncryptor, AeadDecryptor};
+use crypto::aes_gcm::AesGcm;
 
-use hex::{encode, decode};
+use hex::{decode, encode};
 
 // returned cipher text size is plain text size + 8 bytes nonce + 16 key size
 #[no_mangle]
-pub extern "C" fn rust_encrypt(key: *const c_char, nonce: *const c_char ,aad: *const c_char, plain_text: *const c_char, out_cipher_text: *mut *mut c_char) -> i32 {
-    assert!(!key.is_null() && !plain_text.is_null() && !out_cipher_text.is_null() && !nonce.is_null());
+pub extern "C" fn rust_encrypt(
+    key: *const c_char,
+    nonce: *const c_char,
+    aad: *const c_char,
+    plain_text: *const c_char,
+    out_cipher_text: *mut *mut c_char,
+) -> i32 {
+    assert!(
+        !key.is_null() && !plain_text.is_null() && !out_cipher_text.is_null() && !nonce.is_null()
+    );
 
     let key = unsafe {
         match decode(CStr::from_ptr(key).to_str().unwrap()) {
@@ -60,8 +68,16 @@ pub extern "C" fn rust_encrypt(key: *const c_char, nonce: *const c_char ,aad: *c
 }
 
 #[no_mangle]
-pub extern "C" fn rust_decrypt(key: *const c_char, nonce: *const c_char, aad: *const c_char, cipher_text: *const c_char, out_plain_text: *mut *mut c_char) -> i32 {
-    assert!(!key.is_null() && !cipher_text.is_null() && !out_plain_text.is_null() && !nonce.is_null());
+pub extern "C" fn rust_decrypt(
+    key: *const c_char,
+    nonce: *const c_char,
+    aad: *const c_char,
+    cipher_text: *const c_char,
+    out_plain_text: *mut *mut c_char,
+) -> i32 {
+    assert!(
+        !key.is_null() && !cipher_text.is_null() && !out_plain_text.is_null() && !nonce.is_null()
+    );
 
     let key = unsafe {
         match decode(CStr::from_ptr(key).to_str().unwrap()) {
@@ -131,7 +147,9 @@ mod test {
 
         let nonce = CString::new("ed77b0e43daccec06c41f472").unwrap().into_raw();
 
-        let key = CString::new("b058d2931f46abb2a6062abcddf61d75").unwrap().into_raw();
+        let key = CString::new("b058d2931f46abb2a6062abcddf61d75")
+            .unwrap()
+            .into_raw();
         let aad = CString::new("a7e0f8").unwrap().into_raw();
 
         let out_cipher_text = MaybeUninit::<*mut c_char>::uninit().as_mut_ptr();
@@ -157,9 +175,9 @@ mod test {
         let key = decode("b058d2931f46abb2a6062abcddf61d75").unwrap();
         let nonce = decode("ed77b0e43daccec06c41f472").unwrap();
         let aad = decode("a7e0f8").unwrap();
-        let mut cipher_text = vec![0,0];
+        let mut cipher_text = vec![0, 0];
         let mut out_tag = vec![0u8; 16];
-        let plain_text = vec![97,98];
+        let plain_text = vec![97, 98];
 
         let mut aes_gcm = AesGcm::new(KeySize::KeySize128, &key, &nonce, &aad); // use empty aad data
         aes_gcm.encrypt(&plain_text, &mut cipher_text, &mut out_tag);
