@@ -1,12 +1,8 @@
 use std::ffi::{CStr, CString};
-use std::iter::repeat;
 use std::os::raw::c_char;
 
-use crypto::aead::{AeadDecryptor, AeadEncryptor};
-use crypto::aes::KeySize;
-use crypto::aes_gcm::AesGcm;
-
-use hex::{decode, encode};
+use hex::{encode, decode};
+use ring::aead::{SealingKey, OpeningKey, seal_in_place, open_in_place, AES_128_GCM, Nonce, Aad};
 
 // returned cipher text size is plain text size + 8 bytes nonce + 16 key size
 #[no_mangle]
@@ -30,17 +26,22 @@ pub extern "C" fn rust_encrypt(
 
     let nonce = unsafe {
         match decode(CStr::from_ptr(nonce).to_str().unwrap()) {
-            Ok(n) => n,
+            Ok(n) => match Nonce::try_assume_unique_for_key(&n) {
+                Ok(nonce) => nonce,
+                Err(_) => return -1,
+            },
             Err(_) => return -1,
         }
     };
 
-    let plain_text = unsafe {
+    let mut plain_text = unsafe {
         match decode(CStr::from_ptr(plain_text).to_str().unwrap()) {
             Ok(p) => p,
             Err(_) => return -1,
         }
     };
+
+    plain_text.extend_from_slice(&[0; 16]);
 
     let aad = unsafe {
         if aad.is_null() {
@@ -53,15 +54,19 @@ pub extern "C" fn rust_encrypt(
         }
     };
 
-    let mut out_tag = [0u8; 16];
-    let mut cipher_text: Vec<u8> = repeat(0).take(plain_text.len()).collect();
+    let aad = Aad::from(&aad);
 
-    let mut aes_gcm = AesGcm::new(KeySize::KeySize128, &key, &nonce, &aad); // use empty aad data
-    aes_gcm.encrypt(&plain_text, &mut cipher_text, &mut out_tag);
-    cipher_text.extend_from_slice(&out_tag);
+    match SealingKey::new(&AES_128_GCM, &key) {
+        Ok(sealing_key) => {
+            if let Err(_) = seal_in_place(&sealing_key, nonce, aad, &mut plain_text, 16) {
+                return -1;
+            }
+        },
+        Err(_) => return -1,
+    }
 
     unsafe {
-        *out_cipher_text = CString::new(encode(&cipher_text)).unwrap().into_raw();
+        *out_cipher_text = CString::new(encode(&plain_text)).unwrap().into_raw();
     }
 
     return 0;
@@ -88,12 +93,15 @@ pub extern "C" fn rust_decrypt(
 
     let nonce = unsafe {
         match decode(CStr::from_ptr(nonce).to_str().unwrap()) {
-            Ok(n) => n,
+            Ok(n) => match Nonce::try_assume_unique_for_key(&n) {
+                Ok(nonce) => nonce,
+                Err(_) => return -1,
+            },
             Err(_) => return -1,
         }
     };
 
-    let cipher_text = unsafe {
+    let mut cipher_text = unsafe {
         match decode(CStr::from_ptr(cipher_text).to_str().unwrap()) {
             Ok(c) => c,
             Err(_) => return -1,
@@ -111,17 +119,19 @@ pub extern "C" fn rust_decrypt(
         }
     };
 
-    let cipher_text_len = cipher_text.len();
+    let aad = Aad::from(&aad);
 
-    let mut plain_text: Vec<u8> = repeat(0).take(cipher_text_len - 16).collect();
-    let tag = cipher_text[cipher_text_len - 16..].to_vec();
-    let cipher_text = cipher_text[..cipher_text_len - 16].to_vec();
-
-    let mut aes_gcm = AesGcm::new(KeySize::KeySize128, &key, &nonce, &aad); // use empty aad data
-    aes_gcm.decrypt(&cipher_text, &mut plain_text, &tag);
+    match OpeningKey::new(&AES_128_GCM, &key) {
+        Ok(opening_key) => {
+            if let Err(_) = open_in_place(&opening_key, nonce, aad, 0, &mut cipher_text) {
+                return -1;
+            }
+        },
+        Err(_) => return -1,
+    }
 
     unsafe {
-        *out_plain_text = CString::new(encode(&plain_text)).unwrap().into_raw();
+        *out_plain_text = CString::new(encode(&cipher_text[..cipher_text.len() - 16])).unwrap().into_raw();
     }
 
     return 0;
@@ -138,6 +148,37 @@ pub extern "C" fn dealloc_rust_buffer(buf: *mut u8, len: usize) {
 mod test {
     use super::*;
     use std::mem::MaybeUninit;
+
+    #[test]
+    fn test_ring() {
+        let sealing_key = SealingKey::new(&AES_128_GCM, &decode("b058d2931f46abb2a6062abcddf61d75").unwrap()).unwrap();
+        let nonce = Nonce::try_assume_unique_for_key(&decode("ed77b0e43daccec06c41f472").unwrap()).unwrap();
+        let ad = decode("a7e0f8").unwrap();
+        let aad = Aad::from(&ad);
+        let mut in_out = vec![97u8, 98, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+        let out_suffix_capacity = 16;
+        match seal_in_place(&sealing_key, nonce, aad, &mut in_out, out_suffix_capacity) {
+            Ok(len) => println!("encrypted len: {:?}", len),
+            Err(e) => {
+                println!("error: {:?}", e);
+            }
+        }
+
+        println!("in_out: {:?}", encode(&in_out));
+
+        let opening_key = OpeningKey::new(&AES_128_GCM, &decode("b058d2931f46abb2a6062abcddf61d75").unwrap()).unwrap();
+        let nonce = Nonce::try_assume_unique_for_key(&decode("ed77b0e43daccec06c41f472").unwrap()).unwrap();
+        let aad = Aad::from(&ad);
+
+        match open_in_place(&opening_key, nonce, aad, 0, &mut in_out) {
+            Ok(len) => println!("encrypted len: {:?}", len),
+            Err(e) => {
+                println!("error: {:?}", e);
+            }
+        }
+
+        println!("decrypted: {:?}", encode(in_out));
+    }
 
     #[test]
     fn test_cipher() {
@@ -168,21 +209,5 @@ mod test {
             println!("out_plain: {:?}", output);
             assert_eq!(output, [97, 98]);
         }
-    }
-
-    #[test]
-    fn test_rust_crypto() {
-        let key = decode("b058d2931f46abb2a6062abcddf61d75").unwrap();
-        let nonce = decode("ed77b0e43daccec06c41f472").unwrap();
-        let aad = decode("a7e0f8").unwrap();
-        let mut cipher_text = vec![0, 0];
-        let mut out_tag = vec![0u8; 16];
-        let plain_text = vec![97, 98];
-
-        let mut aes_gcm = AesGcm::new(KeySize::KeySize128, &key, &nonce, &aad); // use empty aad data
-        aes_gcm.encrypt(&plain_text, &mut cipher_text, &mut out_tag);
-
-        println!("cipher_text: {:?}", encode(cipher_text));
-        println!("out_tag: {:?}", encode(out_tag));
     }
 }
