@@ -12,6 +12,8 @@ use tiny_hderive::bip32::ExtendedPrivKey;
 
 use ethsign::SecretKey;
 
+use secp256k1::{Secp256k1, PublicKey as SecpPublickey, SecretKey as Secp256SecKey};
+
 #[no_mangle]
 pub extern "C" fn dealloc_rust_cstring(cstring: *mut c_char) {
     unsafe {
@@ -256,9 +258,12 @@ pub extern "C" fn get_public_key_by_mnemonic(
 
     let seed = Seed::new(&Mnemonic::from_phrase(mnemonic, language).unwrap(), "");
     let ext = ExtendedPrivKey::derive(seed.as_bytes(), "m/44'/60'/0'/0/0").unwrap();
-    let privte_key = SecretKey::from_raw(&ext.secret()).unwrap();
+    let secp = Secp256k1::new();
+    let private_key = Secp256SecKey::from_slice(&ext.secret()).unwrap();
+    let pub_key = SecpPublickey::from_secret_key(&secp, &private_key).serialize_uncompressed().to_vec();
+
     unsafe {
-        *public_key = CString::new(encode(&privte_key.public().bytes().to_vec()))
+        *public_key = CString::new(encode(&pub_key))
             .unwrap()
             .into_raw();
     }
