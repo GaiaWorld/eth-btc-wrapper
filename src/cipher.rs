@@ -1,8 +1,8 @@
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
 
-use hex::{encode, decode};
-use ring::aead::{SealingKey, OpeningKey, seal_in_place, open_in_place, AES_128_GCM, Nonce, Aad};
+use hex::{decode, encode};
+use ring::aead::{open_in_place, seal_in_place, Aad, Nonce, OpeningKey, SealingKey, AES_128_GCM};
 
 // returned cipher text size is plain text size + 8 bytes nonce + 16 key size
 #[no_mangle]
@@ -61,7 +61,7 @@ pub extern "C" fn rust_encrypt(
             if let Err(_) = seal_in_place(&sealing_key, nonce, aad, &mut plain_text, 16) {
                 return -1;
             }
-        },
+        }
         Err(_) => return -1,
     }
 
@@ -126,12 +126,14 @@ pub extern "C" fn rust_decrypt(
             if let Err(_) = open_in_place(&opening_key, nonce, aad, 0, &mut cipher_text) {
                 return -1;
             }
-        },
+        }
         Err(_) => return -1,
     }
 
     unsafe {
-        *out_plain_text = CString::new(encode(&cipher_text[..cipher_text.len() - 16])).unwrap().into_raw();
+        *out_plain_text = CString::new(encode(&cipher_text[..cipher_text.len() - 16]))
+            .unwrap()
+            .into_raw();
     }
 
     return 0;
@@ -151,11 +153,16 @@ mod test {
 
     #[test]
     fn test_ring() {
-        let sealing_key = SealingKey::new(&AES_128_GCM, &decode("b058d2931f46abb2a6062abcddf61d75").unwrap()).unwrap();
-        let nonce = Nonce::try_assume_unique_for_key(&decode("ed77b0e43daccec06c41f472").unwrap()).unwrap();
+        let sealing_key = SealingKey::new(
+            &AES_128_GCM,
+            &decode("b058d2931f46abb2a6062abcddf61d75").unwrap(),
+        )
+        .unwrap();
+        let nonce =
+            Nonce::try_assume_unique_for_key(&decode("ed77b0e43daccec06c41f472").unwrap()).unwrap();
         let ad = decode("a7e0f8").unwrap();
         let aad = Aad::from(&ad);
-        let mut in_out = vec![97u8, 98, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+        let mut in_out = vec![97u8, 98, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
         let out_suffix_capacity = 16;
         match seal_in_place(&sealing_key, nonce, aad, &mut in_out, out_suffix_capacity) {
             Ok(len) => println!("encrypted len: {:?}", len),
@@ -166,8 +173,13 @@ mod test {
 
         println!("in_out: {:?}", encode(&in_out));
 
-        let opening_key = OpeningKey::new(&AES_128_GCM, &decode("b058d2931f46abb2a6062abcddf61d75").unwrap()).unwrap();
-        let nonce = Nonce::try_assume_unique_for_key(&decode("ed77b0e43daccec06c41f472").unwrap()).unwrap();
+        let opening_key = OpeningKey::new(
+            &AES_128_GCM,
+            &decode("b058d2931f46abb2a6062abcddf61d75").unwrap(),
+        )
+        .unwrap();
+        let nonce =
+            Nonce::try_assume_unique_for_key(&decode("ed77b0e43daccec06c41f472").unwrap()).unwrap();
         let aad = Aad::from(&ad);
 
         match open_in_place(&opening_key, nonce, aad, 0, &mut in_out) {
