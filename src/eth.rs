@@ -260,12 +260,10 @@ pub extern "C" fn get_public_key_by_mnemonic(
     let ext = ExtendedPrivKey::derive(seed.as_bytes(), "m/44'/60'/0'/0/0").unwrap();
     let secp = Secp256k1::new();
     let private_key = Secp256SecKey::from_slice(&ext.secret()).unwrap();
-    let pub_key = SecpPublickey::from_secret_key(&secp, &private_key)
-        .serialize_uncompressed()
-        .to_vec();
+    let pub_key = &SecpPublickey::from_secret_key(&secp, &private_key).serialize_uncompressed()[..];
 
     unsafe {
-        *public_key = CString::new(encode(&pub_key)).unwrap().into_raw();
+        *public_key = CString::new(encode(pub_key)).unwrap().into_raw();
     }
 
     return 0;
