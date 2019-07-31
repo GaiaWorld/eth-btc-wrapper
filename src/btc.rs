@@ -154,10 +154,11 @@ pub extern "C" fn btc_from_mnemonic(
 
     let mnemonic = unsafe { CStr::from_ptr(mnemonic).to_str().unwrap() };
 
-    let seed = Seed::new(
-        &Mnemonic::from_phrase(mnemonic, language).unwrap(),
-        pass_phrase,
-    );
+    let mn = match Mnemonic::from_phrase(mnemonic, language) {
+        Ok(mn) => mn,
+        Err(_) => return -1,
+    };
+    let seed = Seed::new(&mn, pass_phrase,);
     let extkey = ExtendedPrivKey::new_master(network, seed.as_bytes()).unwrap();
 
     unsafe {

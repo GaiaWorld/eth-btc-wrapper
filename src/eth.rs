@@ -47,7 +47,12 @@ pub extern "C" fn eth_from_mnemonic(
         }
     };
 
-    let seed = Seed::new(&Mnemonic::from_phrase(mnemonic, language).unwrap(), "");
+    let mn = match Mnemonic::from_phrase(mnemonic, language) {
+        Ok(mn) => mn,
+        Err(_) => return -1,
+    };
+
+    let seed = Seed::new(&mn, "");
     let ext = ExtendedPrivKey::derive(seed.as_bytes(), "m/44'/60'/0'/0/0").unwrap();
     let privte_key = SecretKey::from_raw(&ext.secret()).unwrap();
 
@@ -256,7 +261,12 @@ pub extern "C" fn get_public_key_by_mnemonic(
 
     let mnemonic = unsafe { CStr::from_ptr(mnemonic).to_str().unwrap() };
 
-    let seed = Seed::new(&Mnemonic::from_phrase(mnemonic, language).unwrap(), "");
+    let mn = match Mnemonic::from_phrase(mnemonic, language) {
+        Ok(mn) => mn,
+        Err(_) => return -1,
+    };
+
+    let seed = Seed::new(&mn, "");
     let ext = ExtendedPrivKey::derive(seed.as_bytes(), "m/44'/60'/0'/0/0").unwrap();
     let secp = Secp256k1::new();
     let private_key = Secp256SecKey::from_slice(&ext.secret()).unwrap();
